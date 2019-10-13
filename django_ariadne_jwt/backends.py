@@ -7,6 +7,7 @@ from django.utils.module_loading import import_string
 from django.utils.translation import ugettext_lazy as _
 import jwt
 from jwt.exceptions import DecodeError, ExpiredSignatureError
+from starlette.requests import Request as StarletteRequest
 
 from .exceptions import (
     AuthenticatedUserRequiredError,
@@ -33,12 +34,18 @@ class JSONWebTokenBackend(object):
     DEFAULT_JWT_ALGORITHM = "HS256"
     ORIGINAL_IAT_CLAIM = "orig_iat"
     HTTP_AUTHORIZATION_HEADER = "HTTP_AUTHORIZATION"
+    STARLETTE_HEADER = "authorization"
     AUTHORIZATION_HEADER_PREFIX = "Token"
     DEFAULT_JWT_ALGORITHM = "HS256"
 
     def get_token_from_http_header(self, request):
         """Retrieves the http authorization header from the request"""
-        header = request.META.get(self.HTTP_AUTHORIZATION_HEADER, False)
+        header = False
+        if hasattr(request, "META"):
+            header = request.META.get(self.HTTP_AUTHORIZATION_HEADER, False)
+        elif isinstance(request, StarletteRequest):
+            header = request.headers.get(self.STARLETTE_HEADER, False)
+
         if header is False:
             return None
 

@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django_ariadne_jwt import exceptions
 from django_ariadne_jwt.backends import JSONWebTokenBackend
+from starlette.requests import Request
 
 HTTP_AUTHORIZATION_HEADER = "HTTP_AUTHORIZATION"
 
@@ -71,6 +72,19 @@ class HttpHeaderRetrievalTestCase(BaseBackendTestCase):
 
         token = self.backend.get_token_from_http_header(request)
 
+        self.assertEqual(expected_token, token)
+
+    def test_http_header_from_starlette(self):
+        expected_token = str(id(object()))
+        request = Request(
+            {
+                "type": "http",
+                "headers": (
+                    (b"authorization", f"Token {expected_token}".encode()),
+                ),
+            }
+        )
+        token = self.backend.get_token_from_http_header(request)
         self.assertEqual(expected_token, token)
 
 
