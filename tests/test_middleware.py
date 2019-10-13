@@ -8,13 +8,14 @@ from unittest.mock import Mock, patch
 from django_ariadne_jwt.backends import JSONWebTokenBackend
 from django_ariadne_jwt.middleware import JSONWebTokenMiddleware
 from starlette.requests import Request as StarletteRequest
+from typing import Dict
 
 HTTP_AUTHORIZATION_HEADER = "HTTP_AUTHORIZATION"
 
 
 @dataclass
 class InfoObject(object):
-    context: HttpRequest
+    context: Dict
 
 
 class MiddlewareTestCase(TestCase):
@@ -51,13 +52,12 @@ class MiddlewareTestCase(TestCase):
                 "user": None,
             }
         )
-        print(request.headers)
 
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         def next(root, info, **kwargs):
-            self.assertTrue(hasattr(info.context, "user"))
-            self.assertEqual(info.context.user, self.user)
+            self.assertTrue(hasattr(info.context["request"], "user"))
+            self.assertEqual(info.context["request"].user, self.user)
 
         next = Mock(wraps=next)
         settings = {
@@ -80,11 +80,11 @@ class MiddlewareTestCase(TestCase):
         request = HttpRequest()
         request.META[HTTP_AUTHORIZATION_HEADER] = f"Token {token}"
 
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         def next(root, info, **kwargs):
-            self.assertTrue(hasattr(info.context, "user"))
-            self.assertEqual(info.context.user, self.user)
+            self.assertTrue(hasattr(info.context["request"], "user"))
+            self.assertEqual(info.context["request"].user, self.user)
 
         next = Mock(wraps=next)
 
@@ -109,11 +109,11 @@ class MiddlewareTestCase(TestCase):
         request.user = self.user
         request.META[HTTP_AUTHORIZATION_HEADER] = f"Token {token}"
 
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         def next(root, info, **kwargs):
-            self.assertTrue(hasattr(info.context, "user"))
-            self.assertEqual(info.context.user, self.user)
+            self.assertTrue(hasattr(info.context["request"], "user"))
+            self.assertEqual(info.context["request"].user, self.user)
 
         settings = {
             "AUTHENTICATION_BACKENDS": (
@@ -189,7 +189,7 @@ class MiddlewareTestCase(TestCase):
                         }
                         """
                     },
-                    context_value=request,
+                    context_value={"request": request},
                     middleware=[middleware],
                 )
 

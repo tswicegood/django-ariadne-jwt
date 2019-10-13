@@ -84,7 +84,7 @@ class DecoratorsTestCase(TestCase):
                     }
                     """
                 },
-                context_value=request,
+                context_value={"request": request},
                 middleware=middleware,
             )
 
@@ -138,7 +138,7 @@ class DecoratorsTestCase(TestCase):
                     }
                     """
                 },
-                context_value=request,
+                context_value={"request": request},
                 middleware=middleware,
             )
 

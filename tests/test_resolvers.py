@@ -10,7 +10,7 @@ from django_ariadne_jwt.backends import JSONWebTokenBackend
 
 @dataclass
 class InfoObject(object):
-    context: HttpRequest
+    context: {"request": HttpRequest}
 
 
 class TokenGenerationTestCase(TestCase):
@@ -26,7 +26,7 @@ class TokenGenerationTestCase(TestCase):
     def test_token_auth_generation_with_valid_credentials(self):
         """Test the generation of a token for valid credentials"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
         credentials = self.user_data
 
         resolved_data = resolvers.resolve_token_auth(None, info, **credentials)
@@ -39,7 +39,7 @@ class TokenGenerationTestCase(TestCase):
     def test_token_auth_generation_with_invalid_credentials(self):
         """Test the generation of an empty token for invalid credentials"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
         credentials = self.user_data
         credentials["password"] = "BAAAAAD PASSWORD!"
 
@@ -75,7 +75,7 @@ class TokenRefreshingTestCase(TestCase):
     def test_refreshing_token_at_end_of_life(self):
         """Test refreshing a token which is at its end of life"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         settings = {
             "JWT_EXPIRATION_DELTA": datetime.timedelta(seconds=3),
@@ -93,7 +93,7 @@ class TokenRefreshingTestCase(TestCase):
     def test_refreshing_token_not_at_end_of_life(self):
         """Test refreshing a token which is at its end of life"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         settings = {
             "JWT_EXPIRATION_DELTA": datetime.timedelta(seconds=3),
@@ -122,7 +122,7 @@ class TokenVerificationTestCase(TestCase):
     def test_verification_for_invalid_token(self):
         """Test verification of an invalid token"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         token = "SOME.FABRICATED.JWT"
         resolved_data = resolvers.resolve_verify_token(None, info, token)
@@ -135,7 +135,7 @@ class TokenVerificationTestCase(TestCase):
     def test_verification_for_expired_token(self):
         """Test verification of an expired token"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         settings = {"JWT_EXPIRATION_DELTA": datetime.timedelta(seconds=-10)}
 
@@ -151,7 +151,7 @@ class TokenVerificationTestCase(TestCase):
     def test_verification_for_valid_token(self):
         """Test verification of a valid token"""
         request = HttpRequest()
-        info = InfoObject(context=request)
+        info = InfoObject(context={"request": request})
 
         settings = {"JWT_EXPIRATION_DELTA": datetime.timedelta(seconds=2)}
 
