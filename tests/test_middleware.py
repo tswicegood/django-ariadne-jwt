@@ -7,6 +7,7 @@ from django.test import TestCase
 from unittest.mock import Mock, patch
 from django_ariadne_jwt.backends import JSONWebTokenBackend
 from django_ariadne_jwt.middleware import JSONWebTokenMiddleware
+from starlette.requests import Request as StarletteRequest
 
 HTTP_AUTHORIZATION_HEADER = "HTTP_AUTHORIZATION"
 
@@ -39,6 +40,38 @@ class MiddlewareTestCase(TestCase):
         self.other_user = User.objects.create(**self.other_user_data)
         self.other_user.set_password(self.other_user_data["password"])
         self.other_user.save()
+
+    def test_works_with_starlette_request(self):
+        token = JSONWebTokenBackend().create(self.user)
+
+        request = StarletteRequest(
+            {
+                "type": "http",
+                "headers": ((b"authorization", f"Token {token}".encode()),),
+                "user": None,
+            }
+        )
+        print(request.headers)
+
+        info = InfoObject(context=request)
+
+        def next(root, info, **kwargs):
+            self.assertTrue(hasattr(info.context, "user"))
+            self.assertEqual(info.context.user, self.user)
+
+        next = Mock(wraps=next)
+        settings = {
+            "AUTHENTICATION_BACKENDS": (
+                "django_ariadne_jwt.backends.JSONWebTokenBackend",
+                "django.contrib.auth.backends.ModelBackend",
+            )
+        }
+
+        with self.settings(**settings):
+            middleware = JSONWebTokenMiddleware()
+            middleware.resolve(next, {}, info)
+
+            self.assertTrue(next.called)
 
     def test_without_user_and_with_valid_token(self):
         """Tests resolving with a valid token on a request without user"""

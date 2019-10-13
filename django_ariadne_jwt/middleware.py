@@ -1,6 +1,7 @@
 """ariadne_django_jwt middleware module"""
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import AnonymousUser
+from starlette.requests import Request as StarletteRequest
 from .backends import load_backend
 
 __all__ = ["JSONWebTokenMiddleware"]
@@ -22,6 +23,9 @@ class JSONWebTokenMiddleware(object):
                 user = authenticate(request=request, token=token)
 
             if user is not None:
-                setattr(request, "user", user)
+                if isinstance(request, StarletteRequest):
+                    request.scope["user"] = user
+                else:
+                    setattr(request, "user", user)
 
         return next(root, info, **kwargs)
