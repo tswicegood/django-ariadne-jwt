@@ -1,23 +1,30 @@
 """GraphQL decorators module"""
-from django.http import HttpRequest
-from .exceptions import LoginRequiredError
+from django.utils.translation import ugettext_lazy as _
+
+from .exceptions import ImproperlyConfigured, LoginRequiredError
 
 
 def login_required(resolver):
     """Requires login for a resolver"""
 
     def wrapper(parent, info, *args, **kwargs):
-        if "request" in info.context and isinstance(
-            info.context["request"], HttpRequest
-        ):
-            user = getattr(info.context["request"], "user", None)
+        if "request" not in info.context:
+            raise ImproperlyConfigured(_("No request object found."))
 
-            if user is not None and user.is_authenticated:
-                resolved = resolver(parent, info, *args, **kwargs)
+        request = info.context["request"]
+        if not hasattr(request, "user"):
+            raise ImproperlyConfigured(
+                _(
+                    "No user found on request. Verify that "
+                    "JSONWebTokenMiddleware is properly configured."
+                )
+            )
 
-            else:
-                raise LoginRequiredError()
+        user = getattr(info.context["request"], "user", None)
 
-        return resolved
+        if user is None or not user.is_authenticated:
+            raise LoginRequiredError()
+
+        return resolver(parent, info, *args, **kwargs)
 
     return wrapper

@@ -1,5 +1,8 @@
 """ariadne_django exceptions module"""
 
+from django.core.exceptions import (
+    ImproperlyConfigured as DjangoImproperlyConfigured,
+)
 from django.utils.translation import ugettext_lazy as _
 
 
@@ -43,3 +46,7 @@ class InvalidTokenError(Exception):
     """Error for cases when the provided JWT is not valid"""
 
     default_message = _("The provided string is not a valid JWT")
+
+
+class ImproperlyConfigured(DjangoImproperlyConfigured):
+    pass

@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest
 from django.test import TestCase
+from starlette.requests import Request as StarletteRequest
 from unittest.mock import Mock
 from django_ariadne_jwt.backends import JSONWebTokenBackend
 from django_ariadne_jwt.decorators import login_required
 from django_ariadne_jwt.middleware import JSONWebTokenMiddleware
+from django_ariadne_jwt import exceptions
 
 
 HTTP_AUTHORIZATION_HEADER = "HTTP_AUTHORIZATION"
@@ -16,6 +18,10 @@ HTTP_AUTHORIZATION_HEADER = "HTTP_AUTHORIZATION"
 @dataclass
 class InfoObject(object):
     context: HttpRequest
+
+
+def resolve_noop(*args, **kwargs):
+    pass
 
 
 class DecoratorsTestCase(TestCase):
@@ -33,62 +39,62 @@ class DecoratorsTestCase(TestCase):
         self.user.set_password(self.user_data["password"])
         self.user.save()
 
-    def test_login_required_decorator_with_valid_token(self):
-        """Tests the login required decorator called with valid token"""
-        type_definitions = ariadne.gql(
-            """
-            type Query {
-                test: String!
-            }
-        """
+    def test_raises_on_no_request(self):
+        # This is a state we shouldn't get into, but just in case
+        with self.assertRaises(exceptions.ImproperlyConfigured) as cm:
+            info = InfoObject(context={})
+            login_required(resolve_noop)(None, info)
+        self.assertEqual(str(cm.exception), "No request object found.")
+
+    def test_raises_exception_if_no_user_is_present(self):
+        with self.assertRaises(exceptions.ImproperlyConfigured) as cm:
+            info = InfoObject(context={"request": HttpRequest()})
+            login_required(resolve_noop)(None, info)
+        self.assertEqual(
+            str(cm.exception),
+            "No user found on request. Verify that JSONWebTokenMiddleware "
+            "is properly configured.",
         )
 
-        query_type = ariadne.QueryType()
+    def test_returns_wrapped_resolver_on_success(self):
+        expected_return = object()
 
-        def resolve_test(_, info):
-            request = info.context
-            self.assertTrue(hasattr(request, "user"))
-            self.assertEqual(request.user, self.user)
-
-            return "Test!"
-
-        resolve_test = Mock(wraps=resolve_test)
-        decorated_resolve_test = Mock(wraps=login_required(resolve_test))
-        query_type.set_field("test", decorated_resolve_test)
-
-        schema = ariadne.make_executable_schema(
-            [type_definitions], [query_type]
-        )
-
-        middleware = [JSONWebTokenMiddleware()]
-
-        token = JSONWebTokenBackend().create(self.user)
+        def resolver(*args, **kwargs):
+            return expected_return
 
         request = HttpRequest()
-        request.META[HTTP_AUTHORIZATION_HEADER] = f"Token {token}"
+        request.user = Mock(is_authenticated=True)
+        info = InfoObject(context={"request": request})
 
-        settings = {
-            "AUTHENTICATION_BACKENDS": (
-                "django_ariadne_jwt.backends.JSONWebTokenBackend",
-                "django.contrib.auth.backends.ModelBackend",
-            )
-        }
+        self.assertEqual(login_required(resolver)(None, info), expected_return)
 
-        with self.settings(**settings):
-            ariadne.graphql_sync(
-                schema,
-                {
-                    "query": """
-                    query {
-                        test
-                    }
-                    """
-                },
-                context_value={"request": request},
-                middleware=middleware,
-            )
+    def test_raises_loginrequired_on_unauthenticated_user(self):
+        request = HttpRequest()
+        request.user = Mock(is_authenticated=False)
+        info = InfoObject(context={"request": request})
 
-            self.assertTrue(resolve_test.called)
+        with self.assertRaises(exceptions.LoginRequiredError):
+            login_required(resolve_noop)(None, info)
+
+    def test_can_handle_starlette_request(self):
+        expected_return = object()
+
+        def resolver(*args, **kwargs):
+            return expected_return
+
+        user = Mock(is_authenticated=True)
+        request = StarletteRequest(scope={"type": "http", "user": user})
+        info = InfoObject(context={"request": request})
+
+        self.assertEqual(login_required(resolver)(None, info), expected_return)
+
+    def test_can_handle_unauthenticated_starlette_request(self):
+        user = Mock(is_authenticated=False)
+        request = StarletteRequest(scope={"type": "http", "user": user})
+        info = InfoObject(context={"request": request})
+
+        with self.assertRaises(exceptions.LoginRequiredError):
+            login_required(resolve_noop)(None, info)
 
     def test_login_required_decorator_without_valid_token(self):
         """Tests the login required decorator called without valid token"""
