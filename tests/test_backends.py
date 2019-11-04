@@ -87,6 +87,22 @@ class HttpHeaderRetrievalTestCase(BaseBackendTestCase):
         token = self.backend.get_token_from_http_header(request)
         self.assertEqual(expected_token, token)
 
+    def test_http_header_retrieval_with_empty_value(self):
+        """Tests the retrieval of a token from http headers"""
+        request = HttpRequest()
+        request.META[HTTP_AUTHORIZATION_HEADER] = ""
+
+        token = self.backend.get_token_from_http_header(request)
+
+        self.assertIsNone(token)
+
+    def test_http_header_from_starlette_with_empty_value(self):
+        request = Request(
+            {"type": "http", "headers": ((b"authorization", b""),)}
+        )
+        token = self.backend.get_token_from_http_header(request)
+        self.assertIsNone(token)
+
 
 class JWTCreationTestCase(BaseBackendTestCase):
     """Tests the creation of JWTs"""

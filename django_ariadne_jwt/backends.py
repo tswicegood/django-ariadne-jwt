@@ -46,7 +46,7 @@ class JSONWebTokenBackend(object):
         elif isinstance(request, StarletteRequest):
             header = request.headers.get(self.STARLETTE_HEADER, False)
 
-        if header is False:
+        if not header:
             return None
 
         prefix, token = header.split()
